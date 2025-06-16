@@ -12,7 +12,7 @@
                 ('state', 'in', ['published', 'closed'])
             ]</field>
             <field name="perm_read" eval="True"/>
-            <field name="perm_write" eval="True"/>  <!-- Write is controlled by model constraints -->
+            <field name="perm_write" eval="True"/>
             <field name="perm_create" eval="True"/>
             <field name="perm_unlink" eval="False"/>
         </record>
@@ -24,7 +24,7 @@
             <field name="groups" eval="[(4, ref('group_online_course_student'))]"/>
             <field name="domain_force">[('state', 'in', ['published', 'closed'])]</field>
             <field name="perm_read" eval="True"/>
-            <field name="perm_write" eval="True"/>  <!-- Limited by model write() method -->
+            <field name="perm_write" eval="True"/>
             <field name="perm_create" eval="False"/>
             <field name="perm_unlink" eval="False"/>
         </record>

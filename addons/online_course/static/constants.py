@@ -3,7 +3,6 @@ from typing import List, Tuple, Final
 
 
 class CourseConstants:
-    """Course-related constants and configuration with type hints."""
 
     class States:
         """Course state constants."""

@@ -1,9 +1,15 @@
-from typing import Any, Dict
+# -*- coding: utf-8 -*-
+from typing import Any, Dict, Optional, TYPE_CHECKING
 from odoo import _
+from odoo.exceptions import ValidationError 
+
+if TYPE_CHECKING:
+    from ..models.res_users import ResUsers
+    from ..models.course import Course
+
 from ..static.constants import CourseConstants
 from ..validators.course_validators import EnrollmentValidator, PriceValidator
 from ..services.notification_factory import NotificationFactory
-from ..exception.exceptions import EnrollmentError, CourseStateError
 
 
 class CourseSecurityService:
@@ -12,7 +18,7 @@ class CourseSecurityService:
     def __init__(self, env) -> None:
         self.env = env
 
-    def can_edit_course_details(self, course, user=None) -> bool:
+    def can_edit_course_details(self, course: 'Course', user: Optional['ResUsers'] = None) -> bool:
         """Check if user can edit course details."""
         user = user or self.env.user
         return (
@@ -20,11 +26,11 @@ class CourseSecurityService:
             or course.teacher_id == user
         )
 
-    def can_edit_price(self, course, user=None) -> bool:
+    def can_edit_price(self, course: 'Course', user: Optional['ResUsers'] = None) -> bool:
         """Check if user can edit course price."""
         return self.can_edit_course_details(course, user)
 
-    def can_edit_teacher(self, course, user=None) -> bool:
+    def can_edit_teacher(self, course: 'Course', user: Optional['ResUsers'] = None) -> bool:
         """Check if user can change teacher assignment."""
         user = user or self.env.user
         return user.has_group(CourseConstants.Security.ADMIN_GROUP)
@@ -37,16 +43,20 @@ class CourseEnrollmentService:
         self.env = env
         self.validator = EnrollmentValidator()
 
-    def enroll_student(self, course, student) -> Dict[str, Any]:
+    def enroll_student(self, course: 'Course', student: 'ResUsers') -> Dict[str, Any]:
         """Enroll a student in a course."""
-        self.validator.validate(course, student)
+        try:
+            self.validator.validate(course, student)
+        except Exception as e:
+            raise ValidationError(str(e))
+            
         course.sudo().write({"student_ids": [(4, student.id)]})
         return NotificationFactory.create_enrollment_success(course.name)
 
-    def unenroll_student(self, course, student) -> Dict[str, Any]:
+    def unenroll_student(self, course: 'Course', student: 'ResUsers') -> Dict[str, Any]:
         """Unenroll a student from a course."""
         if student not in course.student_ids:
-            raise EnrollmentError(_(CourseConstants.Messages.NOT_ENROLLED))
+            raise ValidationError(_(CourseConstants.Messages.NOT_ENROLLED))
 
         course.sudo().write({"student_ids": [(3, student.id)]})
         return NotificationFactory.create_unenrollment_success(course.name)
@@ -59,33 +69,37 @@ class CourseStateService:
         self.env = env
         self.price_validator = PriceValidator()
 
-    def publish_course(self, course) -> None:
+    def publish_course(self, course: 'Course') -> None:
         """Publish a course."""
-        self.price_validator.validate(course)
+        try:
+            self.price_validator.validate(course)
+        except Exception as e:
+            raise ValidationError(str(e))
+            
         course.state = CourseConstants.States.PUBLISHED
 
-    def close_enrollment(self, course) -> None:
+    def close_enrollment(self, course: 'Course') -> None:
         """Close course enrollment."""
         if course.state != CourseConstants.States.PUBLISHED:
-            raise CourseStateError(
+            raise ValidationError(
                 _("Can only close enrollment for published courses.")
             )
         course.state = CourseConstants.States.CLOSED
 
-    def reopen_enrollment(self, course) -> None:
+    def reopen_enrollment(self, course: 'Course') -> None:
         """Reopen course enrollment."""
         if course.state != CourseConstants.States.CLOSED:
-            raise CourseStateError(_("Can only reopen enrollment for closed courses."))
+            raise ValidationError(_("Can only reopen enrollment for closed courses."))
         course.state = CourseConstants.States.PUBLISHED
 
-    def archive_course(self, course) -> None:
+    def archive_course(self, course: 'Course') -> None:
         """Archive a course."""
         course.state = CourseConstants.States.ARCHIVED
 
-    def set_to_draft(self, course) -> None:
+    def set_to_draft(self, course: 'Course') -> None:
         """Set course back to draft."""
         if course.student_ids:
-            raise CourseStateError(
+            raise ValidationError(
                 _("Cannot set course '%s' to draft because it has enrolled students.")
                 % course.name
             )
